@@ -1,0 +1,254 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CP'S Enterprise DCS - Docker Compose
+# Full Stack Deployment Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+version: '3.8'
+
+services:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PostgreSQL - Event Store
+  # ═══════════════════════════════════════════════════════════════════════════
+  postgres:
+    image: postgres:16-alpine
+    container_name: dcs-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dcs_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dcs_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-dcs_eventstore}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../event-store/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dcs_admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dcs-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Redis - Cache & Session Store
+  # ═══════════════════════════════════════════════════════════════════════════
+  redis:
+    image: redis:7-alpine
+    container_name: dcs-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dcs-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # HashiCorp Vault - Secret Management
+  # ═══════════════════════════════════════════════════════════════════════════
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: dcs-vault
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:-dcs-dev-token}
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    volumes:
+      - vault_data:/vault/file
+    ports:
+      - "${VAULT_PORT:-8200}:8200"
+    networks:
+      - dcs-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Kafka - Event Streaming
+  # ═══════════════════════════════════════════════════════════════════════════
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: dcs-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - dcs-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: dcs-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    networks:
+      - dcs-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Prometheus - Metrics
+  # ═══════════════════════════════════════════════════════════════════════════
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: dcs-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - dcs-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Grafana - Dashboards
+  # ═══════════════════════════════════════════════════════════════════════════
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: dcs-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    networks:
+      - dcs-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Regional Agent (Go)
+  # ═══════════════════════════════════════════════════════════════════════════
+  regional-agent:
+    build:
+      context: ../regional-agent
+      dockerfile: Dockerfile
+    container_name: dcs-regional-agent
+    environment:
+      DCS_AGENT_ID: ${REGIONAL_AGENT_ID:-regional-001}
+      DCS_REGION_ID: ${REGION_ID:-region-001}
+      DCS_RPC_ADDR: :12000
+      DCS_RAFT_ADDR: :12001
+      DCS_GRPC_PORT: 50052
+      DCS_POSTGRESQL_URL: postgres://${POSTGRES_USER:-dcs_admin}:${POSTGRES_PASSWORD:-dcs_secure_password}@postgres:5432/${POSTGRES_DB:-dcs_eventstore}?sslmode=disable
+      DCS_REDIS_URL: redis:6379
+      DCS_BOOTSTRAP: "true"
+    ports:
+      - "12000:12000"
+      - "12001:12001"
+      - "50052:50052"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dcs-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Local Agent (Python) - Example Instance
+  # ═══════════════════════════════════════════════════════════════════════════
+  local-agent:
+    build:
+      context: ../local-agent
+      dockerfile: Dockerfile
+    container_name: dcs-local-agent
+    environment:
+      DCS_AGENT_ID: ${LOCAL_AGENT_ID:-local-001}
+      DCS_BRANCH_ID: ${BRANCH_ID:-BR001}
+      DCS_REGION_ID: ${REGION_ID:-region-001}
+      DCS_DB_PATH: /data/events.db
+      DCS_SYNC_INTERVAL: "30"
+      DCS_GRPC_PORT: "50051"
+      DCS_REGIONAL_ENDPOINT: regional-agent:50052
+    volumes:
+      - local_agent_data:/data
+    ports:
+      - "50051:50051"
+    depends_on:
+      - regional-agent
+    networks:
+      - dcs-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # POS Interface (React)
+  # ═══════════════════════════════════════════════════════════════════════════
+  pos-interface:
+    build:
+      context: ../pos-interface
+      dockerfile: Dockerfile
+    container_name: dcs-pos-interface
+    environment:
+      VITE_API_URL: http://localhost:50051
+      VITE_WS_URL: ws://localhost:50051
+    ports:
+      - "${POS_PORT:-3000}:3000"
+    depends_on:
+      - local-agent
+    networks:
+      - dcs-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Nginx - Reverse Proxy
+  # ═══════════════════════════════════════════════════════════════════════════
+  nginx:
+    image: nginx:alpine
+    container_name: dcs-nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - pos-interface
+      - regional-agent
+    networks:
+      - dcs-network
+
+# ═══════════════════════════════════════════════════════════════════════════
+# VOLUMES
+# ═══════════════════════════════════════════════════════════════════════════
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  vault_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  local_agent_data:
+    driver: local
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NETWORKS
+# ═══════════════════════════════════════════════════════════════════════════
+
+networks:
+  dcs-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

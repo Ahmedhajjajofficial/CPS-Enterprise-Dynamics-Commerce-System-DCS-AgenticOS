@@ -1,0 +1,635 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// CP'S Enterprise Dynamics Commerce System (DCS) v4.0
+// Protocol Buffers Schema - Sovereign Architecture
+// ═══════════════════════════════════════════════════════════════════════════════
+// Author: Ahmed Hajjaj - Full-Spectrum Architect
+// License: Proprietary - Internal Use Only
+// ═══════════════════════════════════════════════════════════════════════════════
+
+syntax = "proto3";
+
+package cps.enterprise.v4;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/cps-enterprise/dcs/proto";
+option python_package = "cps_enterprise.dcs.proto";
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 1: SOVEREIGN SECURITY LAYER
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Envelope Encryption with Plausible Deniability Support
+message SovereignPayload {
+  // Primary encryption layer
+  bytes encrypted_data = 1;           // AES-256-GCM Ciphertext
+  bytes encrypted_dek = 2;            // DEK encrypted by KEK via Vault Transit
+  string kms_key_id = 3;              // KEK identifier in HashiCorp Vault
+  bytes iv = 4;                       // 12 bytes IV unique per event
+  bytes auth_tag = 5;                 // GCM Authentication Tag (16 bytes)
+  string hmac_signature = 6;          // HMAC-SHA512 on visible metadata
+  uint32 schema_version = 7;          // Schema version for HMAC compatibility
+  
+  // Advanced security layers
+  bytes encrypted_inner_layer = 8;    // Additional encryption for sensitive data
+  string inner_key_derivation = 9;    // HKDF identifier for inner layer
+  bytes compliance_proof = 10;        // Zero-Knowledge Proof for compliance
+  bytes audit_trail_hash = 11;        // Hash chain for tamper detection
+}
+
+// Cryptographic key reference for envelope encryption
+message KeyReference {
+  string key_id = 1;
+  string key_version = 2;
+  string algorithm = 3;               // e.g., "AES-256-GCM"
+  int64 created_at = 4;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 2: TEMPORAL & CAUSALITY LAYER
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Hybrid Logical Clock - Optimized Vector Clock Alternative
+message HybridLogicalClock {
+  int64 physical_ms = 1;              // Physical time in milliseconds
+  int32 logical = 2;                  // Logical counter for concurrent events
+  string node_id = 3;                 // Node identifier
+  int32 counter = 4;                  // Monotonic counter per node
+}
+
+// Legacy Vector Clock for backward compatibility
+message VectorClock {
+  map<string, uint64> node_ticks = 1;
+  int64 wall_clock_hint = 2;          // Diagnostic only, not used in comparison
+}
+
+// Causal dependency tracking
+message CausalContext {
+  HybridLogicalClock hlc = 1;
+  VectorClock v_clock = 2;            // Legacy support
+  repeated string parent_event_ids = 3;
+  int64 lamport_timestamp = 4;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 3: CORE EVENT SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// The sovereign financial event - heart of the system
+message SovereignFinancialEvent {
+  // --- Event Identifiers ---
+  string event_id = 1;                // UUID v7 (time-ordered)
+  string correlation_id = 2;          // Saga event linkage
+  string idempotency_key = 3;         // Deterministic SHA-256
+  uint32 stream_version = 4;          // Optimistic concurrency control
+  string event_hash = 5;              // SHA-256 of event content
+  
+  // --- Context ---
+  string branch_id = 6;
+  string agent_id = 7;                // AI or Human Cashier identifier
+  string saga_id = 8;                 // Saga orchestrator reference
+  string tenant_id = 9;               // Multi-tenancy support
+  
+  // --- Content ---
+  EventType type = 10;
+  double amount = 11;
+  string currency = 12;
+  SovereignPayload payload = 13;
+  bytes public_metadata = 14;         // Unencrypted metadata for indexing
+  
+  // --- Temporal & Causality Guarantees ---
+  CausalContext causal_context = 15;
+  google.protobuf.Timestamp ts = 16;
+  int64 received_at = 17;             // Server reception timestamp
+  
+  // --- Audit Trail ---
+  string created_by = 18;
+  string approved_by = 19;
+  bytes digital_signature = 20;       // ECDSA signature by creator
+}
+
+// Comprehensive event type classification
+enum EventType {
+  UNKNOWN = 0;
+  
+  // Sales Flow
+  SALE_INITIATED = 1;
+  SALE_COMPLETED = 2;
+  SALE_REVERSED = 3;
+  SALE_PARTIALLY_REFUNDED = 4;
+  
+  // Inventory Flow
+  INVENTORY_RECEIVED = 10;
+  INVENTORY_RESERVED = 11;
+  INVENTORY_RESERVATION_CANCELLED = 12;
+  INVENTORY_SOLD = 13;
+  INVENTORY_TRANSFERRED_OUT = 14;
+  INVENTORY_TRANSFERRED_IN = 15;
+  INVENTORY_ADJUSTMENT = 16;
+  INVENTORY_COUNTED = 17;
+  LOW_STOCK_ALERT = 18;
+  STOCKOUT_DETECTED = 19;
+  
+  // Accounting Flow
+  LEDGER_ENTRY_POSTED = 20;
+  LEDGER_REVERSAL_POSTED = 21;
+  END_OF_DAY_RECONCILIATION = 22;
+  PERIOD_CLOSED = 23;
+  TRIAL_BALANCE_GENERATED = 24;
+  
+  // Payment Flow
+  PAYMENT_AUTHORIZED = 30;
+  PAYMENT_CAPTURED = 31;
+  PAYMENT_REFUNDED = 32;
+  PAYMENT_FAILED = 33;
+  PAYMENT_CHARGEBACK = 34;
+  
+  // Customer Flow
+  CUSTOMER_REGISTERED = 40;
+  LOYALTY_POINTS_EARNED = 41;
+  LOYALTY_POINTS_REDEEMED = 42;
+  LOYALTY_POINTS_EXPIRED = 43;
+  
+  // Compliance Flow (HACCP)
+  TEMPERATURE_NORMAL = 50;
+  TEMPERATURE_WARNING = 51;
+  TEMPERATURE_ANOMALY_DETECTED = 52;
+  EMERGENCY_PROTOCOL_TRIGGERED = 53;
+  MAINTENANCE_DISPATCHED = 54;
+  COMPLIANCE_RECORD_SEALED = 55;
+  
+  // Saga Flow
+  SAGA_INITIATED = 60;
+  SAGA_STEP_COMPLETED = 61;
+  SAGA_COMPENSATION_TRIGGERED = 62;
+  SAGA_COMPENSATION_COMPLETED = 63;
+  SAGA_FAILED = 64;
+  TRANSACTION_REJECTED = 65;
+  
+  // Agent Flow
+  AGENT_DECISION_MADE = 70;
+  AGENT_ACTION_EXECUTED = 71;
+  AGENT_LEARNING_UPDATED = 72;
+  
+  // Audit Flow
+  CRITICAL_AUDIT_EVENT = 80;
+  SECURITY_ALERT = 81;
+  DATA_INTEGRITY_CHECK = 82;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 4: CRDT DATA STRUCTURES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Grow-only Counter CRDT
+message GCounter {
+  string node_id = 1;
+  map<string, uint64> increments = 2;
+}
+
+// Positive-Negative Counter CRDT
+message PNCounter {
+  string node_id = 1;
+  map<string, uint64> increments = 2;
+  map<string, uint64> decrements = 3;
+}
+
+// Observed-Remove Set CRDT
+message ORSet {
+  string node_id = 1;
+  repeated ORSetElement elements = 2;
+}
+
+message ORSetElement {
+  string element_id = 1;              // UUID for the element
+  string value = 2;                   // Actual value
+  bool is_removed = 3;
+  HybridLogicalClock added_at = 4;
+  HybridLogicalClock removed_at = 5;
+}
+
+// Last-Write-Wins Register CRDT
+message LWWRegister {
+  string value = 1;
+  HybridLogicalClock timestamp = 2;
+  string node_id = 3;
+}
+
+// CRDT State Bundle for synchronization
+message CRDTStateBundle {
+  string branch_id = 1;
+  string crdt_type = 2;               // "GCounter", "PNCounter", "ORSet", "LWWRegister"
+  string crdt_id = 3;                 // Identifier for this CRDT instance
+  bytes serialized_state = 4;         // Protobuf serialized CRDT
+  HybridLogicalClock last_updated = 5;
+  uint64 version = 6;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 5: SAGA ORCHESTRATION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Saga instance state
+message SagaInstance {
+  string saga_id = 1;
+  string correlation_id = 2;
+  SagaType saga_type = 3;
+  SagaState current_state = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  google.protobuf.Timestamp timeout_at = 7;
+  bytes context = 8;                  // Serialized saga context
+  repeated SagaStep completed_steps = 9;
+  repeated SagaStep pending_steps = 10;
+  repeated SagaStep compensation_steps = 11;
+}
+
+enum SagaType {
+  STANDARD_SALE = 0;
+  REFUND_PROCESSING = 1;
+  INVENTORY_TRANSFER = 2;
+  BATCH_OPERATION = 3;
+  CROSS_BRANCH_SALE = 4;
+}
+
+enum SagaState {
+  SAGA_PENDING = 0;
+  SAGA_RUNNING = 1;
+  SAGA_COMPLETED = 2;
+  SAGA_COMPENSATING = 3;
+  SAGA_COMPENSATED = 4;
+  SAGA_FAILED = 5;
+  SAGA_TIMED_OUT = 6;
+}
+
+message SagaStep {
+  string step_id = 1;
+  string step_name = 2;
+  int32 step_order = 3;
+  string service_name = 4;
+  bytes step_data = 5;
+  SagaStepState state = 6;
+  string compensation_step_id = 7;
+}
+
+enum SagaStepState {
+  STEP_PENDING = 0;
+  STEP_EXECUTING = 1;
+  STEP_COMPLETED = 2;
+  STEP_FAILED = 3;
+  STEP_COMPENSATING = 4;
+  STEP_COMPENSATED = 5;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 6: RECONCILIATION & CONFLICT RESOLUTION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Reconciliation request
+message ReconciliationRequest {
+  string branch_id = 1;
+  int64 start_timestamp = 2;
+  int64 end_timestamp = 3;
+  double expected_balance = 4;
+  string requested_by_agent = 5;
+  bool include_crdt_state = 6;
+  repeated string event_type_filter = 7;
+}
+
+// Reconciliation response
+message ReconciliationResponse {
+  bool is_balanced = 1;
+  double actual_balance = 2;
+  repeated string discrepancy_event_ids = 3;
+  string validation_signature = 4;    // ECDSA signature from Master Agent
+  bytes master_public_key_id = 5;
+  CRDTStateBundle crdt_snapshot = 6;
+  repeated SovereignFinancialEvent missing_events = 7;
+  HybridLogicalClock reconciliation_timestamp = 8;
+}
+
+// Conflict resolution
+message ConflictResolutionRequest {
+  repeated SovereignFinancialEvent conflicting_events = 1;
+  ConflictStrategy resolution_strategy = 2;
+  string requesting_agent_id = 3;
+  bytes resolution_context = 4;
+}
+
+enum ConflictStrategy {
+  LAST_WRITER_WINS = 0;
+  VECTOR_CLOCK_ORDER = 1;
+  AGENT_VOTE = 2;
+  MASTER_DECIDES = 3;
+  CRDT_MERGE = 4;
+  CUSTOM_RESOLUTION = 5;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 7: AGENT SWARM PROTOCOLS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Agent registration and heartbeat
+message AgentRegistration {
+  string agent_id = 1;
+  AgentType agent_type = 2;
+  string branch_id = 3;
+  string region_id = 4;
+  repeated string capabilities = 5;
+  AgentStatus status = 6;
+  google.protobuf.Timestamp registered_at = 7;
+  google.protobuf.Timestamp last_heartbeat = 8;
+  bytes public_key = 9;
+}
+
+enum AgentType {
+  LOCAL_AGENT = 0;
+  REGIONAL_AGENT = 1;
+  MASTER_AGENT = 2;
+  PREDICTIVE_AGENT = 3;
+  COMPLIANCE_AGENT = 4;
+  SECURITY_AGENT = 5;
+}
+
+enum AgentStatus {
+  AGENT_INITIALIZING = 0;
+  AGENT_ACTIVE = 1;
+  AGENT_DEGRADED = 2;
+  AGENT_OFFLINE = 3;
+  AGENT_SHUTDOWN = 4;
+}
+
+// Agent decision and action
+message AgentDecision {
+  string decision_id = 1;
+  string agent_id = 2;
+  DecisionType decision_type = 3;
+  bytes decision_context = 4;
+  float confidence_score = 5;
+  repeated string reasoning_steps = 6;
+  bytes action_payload = 7;
+  google.protobuf.Timestamp decided_at = 8;
+}
+
+enum DecisionType {
+  INVENTORY_REORDER = 0;
+  PRICE_ADJUSTMENT = 1;
+  STAFF_SCHEDULING = 2;
+  MAINTENANCE_ALERT = 3;
+  FRAUD_DETECTION = 4;
+  CUSTOMER_ENGAGEMENT = 5;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 8: RESPONSE MESSAGES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Enhanced acknowledgment response
+message AckResponse {
+  bool success = 1;
+  string message = 2;
+  string receipt_hash = 3;            // SHA-256 of event_id + stream_version
+  bool is_duplicate = 4;
+  string saga_id = 5;
+  HybridLogicalClock committed_clock = 6;
+  string processing_node = 7;
+  int64 processing_time_ms = 8;
+}
+
+// Batch acknowledgment
+message BatchAckResponse {
+  repeated AckResponse individual_responses = 1;
+  int32 total_processed = 2;
+  int32 total_failed = 3;
+  string batch_id = 4;
+}
+
+// Stream control messages
+message StreamControl {
+  StreamCommand command = 1;
+  bytes payload = 2;
+}
+
+enum StreamCommand {
+  STREAM_CONTINUE = 0;
+  STREAM_PAUSE = 1;
+  STREAM_RESUME = 2;
+  STREAM_CLOSE = 3;
+  STREAM_BACKPRESSURE = 4;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 9: ACCOUNTING SWARM PROTOCOL (gRPC Services)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+service AccountingSwarmProtocol {
+  // ─── Unary RPCs ───
+  
+  // Broadcast single financial event
+  rpc BroadcastFinancialEvent(SovereignFinancialEvent) returns (AckResponse);
+  
+  // Query event by ID
+  rpc GetEventById(GetEventRequest) returns (SovereignFinancialEvent);
+  
+  // Query events by range
+  rpc GetEventsByRange(GetEventsRangeRequest) returns (EventBatch);
+  
+  // Request reconciliation
+  rpc RequestReconciliation(ReconciliationRequest) returns (ReconciliationResponse);
+  
+  // Resolve conflicts
+  rpc ResolveLedgerConflict(ConflictResolutionRequest) returns (SovereignFinancialEvent);
+  
+  // ─── Server Streaming RPCs ───
+  
+  // Subscribe to event stream
+  rpc SubscribeEvents(SubscribeRequest) returns (stream SovereignFinancialEvent);
+  
+  // Stream reconciliation results
+  rpc StreamReconciliation(ReconciliationRequest) returns (stream ReconciliationResponse);
+  
+  // ─── Client Streaming RPCs ───
+  
+  // Stream offline events for batch sync
+  rpc StreamOfflineEvents(stream SovereignFinancialEvent) returns (BatchAckResponse);
+  
+  // Stream CRDT state updates
+  rpc StreamCRDTUpdates(stream CRDTStateBundle) returns (BatchAckResponse);
+  
+  // ─── Bidirectional Streaming RPCs ───
+  
+  // Real-time swarm event exchange
+  rpc SwarmEventExchange(stream SovereignFinancialEvent) returns (stream SovereignFinancialEvent);
+  
+  // CRDT state synchronization
+  rpc SyncCRDTState(stream CRDTStateBundle) returns (stream CRDTStateBundle);
+  
+  // Agent communication channel
+  rpc AgentCommunication(stream AgentMessage) returns (stream AgentMessage);
+}
+
+// Supporting messages for gRPC
+message GetEventRequest {
+  string event_id = 1;
+  string branch_id = 2;
+  bool include_payload = 3;
+}
+
+message GetEventsRangeRequest {
+  string branch_id = 1;
+  int64 start_timestamp = 2;
+  int64 end_timestamp = 3;
+  repeated EventType type_filter = 4;
+  int32 limit = 5;
+  string cursor = 6;
+}
+
+message EventBatch {
+  repeated SovereignFinancialEvent events = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+  int32 total_count = 4;
+}
+
+message SubscribeRequest {
+  string branch_id = 1;
+  repeated EventType event_types = 2;
+  int64 from_timestamp = 3;
+  bool include_historical = 4;
+}
+
+// Agent communication envelope
+message AgentMessage {
+  string message_id = 1;
+  string from_agent = 2;
+  string to_agent = 3;
+  AgentMessageType message_type = 4;
+  bytes payload = 5;
+  HybridLogicalClock timestamp = 6;
+  bytes signature = 7;
+}
+
+enum AgentMessageType {
+  HEARTBEAT = 0;
+  DECISION_REQUEST = 1;
+  DECISION_RESPONSE = 2;
+  COORDINATION = 3;
+  ALERT = 4;
+  LEARNING_UPDATE = 5;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 10: QUERY & PROJECTION PROTOCOL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+service QueryProtocol {
+  // Read model queries
+  rpc GetBranchSummary(BranchQuery) returns (BranchSummary);
+  rpc GetInventoryStatus(InventoryQuery) returns (InventoryStatus);
+  rpc GetSalesReport(SalesReportQuery) returns (SalesReport);
+  rpc GetLedgerBalance(LedgerQuery) returns (LedgerBalance);
+  
+  // Real-time projections
+  rpc SubscribeDashboard(DashboardSubscription) returns (stream DashboardUpdate);
+}
+
+message BranchQuery {
+  string branch_id = 1;
+  int64 as_of_timestamp = 2;
+}
+
+message BranchSummary {
+  string branch_id = 1;
+  double today_sales = 2;
+  int32 today_transactions = 3;
+  double current_balance = 4;
+  int32 active_sessions = 5;
+  repeated Alert alerts = 6;
+  HybridLogicalClock last_updated = 7;
+}
+
+message Alert {
+  AlertLevel level = 1;
+  string message = 2;
+  string source = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+enum AlertLevel {
+  INFO = 0;
+  WARNING = 1;
+  ERROR = 2;
+  CRITICAL = 3;
+}
+
+message InventoryQuery {
+  string branch_id = 1;
+  string product_id = 2;
+  bool include_history = 3;
+}
+
+message InventoryStatus {
+  string product_id = 1;
+  string branch_id = 2;
+  int32 current_quantity = 3;
+  int32 reserved_quantity = 4;
+  int32 available_quantity = 5;
+  int32 reorder_point = 6;
+  bool is_low_stock = 7;
+  HybridLogicalClock last_movement = 8;
+}
+
+message SalesReportQuery {
+  string branch_id = 1;
+  int64 start_date = 2;
+  int64 end_date = 3;
+  string group_by = 4;                // "hour", "day", "week", "month"
+}
+
+message SalesReport {
+  repeated SalesReportEntry entries = 1;
+  double total_sales = 2;
+  int32 total_transactions = 3;
+  double average_transaction = 4;
+}
+
+message SalesReportEntry {
+  string period = 1;
+  double sales_amount = 2;
+  int32 transaction_count = 3;
+  map<string, double> by_category = 4;
+}
+
+message LedgerQuery {
+  string branch_id = 1;
+  string account_code = 2;
+  int64 as_of_date = 3;
+}
+
+message LedgerBalance {
+  string account_code = 1;
+  string account_name = 2;
+  double debit_balance = 3;
+  double credit_balance = 4;
+  double net_balance = 5;
+  HybridLogicalClock last_updated = 6;
+}
+
+message DashboardSubscription {
+  string branch_id = 1;
+  repeated string metrics = 2;
+  int32 update_interval_ms = 3;
+}
+
+message DashboardUpdate {
+  string metric_name = 1;
+  double value = 2;
+  string display_value = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  AlertLevel trend = 5;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// END OF SCHEMA
+// ═══════════════════════════════════════════════════════════════════════════════
