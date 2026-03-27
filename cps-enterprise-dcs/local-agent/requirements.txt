@@ -8,7 +8,6 @@ protobuf>=4.25.0
 
 # Cryptography & Security
 cryptography>=42.0.0
-hashlib2>=1.1.0
 PyJWT>=2.8.0
 
 # Database

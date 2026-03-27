@@ -30,10 +30,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -173,7 +173,7 @@ func getEnvInt(key string, defaultValue int) int {
 
 func generateID() string {
 	b := make([]byte, 6)
-	if _, err := os.Read("/dev/urandom", b); err != nil {
+	if _, err := rand.Read(b); err != nil {
 		return "unknown"
 	}
 	return fmt.Sprintf("%x", b)[:8]

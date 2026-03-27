@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // Manager manages CRDT state for the region
@@ -320,8 +321,8 @@ func (s *ORSet) Contains(value string) bool {
 	return false
 }
 
-// Elements returns all active elements
-func (s *ORSet) Elements() []string {
+// ActiveElements returns all active (non-removed) elements
+func (s *ORSet) ActiveElements() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -449,6 +450,3 @@ func generateID() string {
 func now() string {
 	return time.Now().UTC().Format(time.RFC3339Nano)
 }
-
-import "time"
-import "fmt"

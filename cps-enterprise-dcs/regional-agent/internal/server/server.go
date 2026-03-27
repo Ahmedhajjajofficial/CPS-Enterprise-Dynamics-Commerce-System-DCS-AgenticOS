@@ -1,0 +1,41 @@
+package server
+
+import (
+	"net"
+
+	"github.com/cps-enterprise/dcs/regional-agent/internal/agent"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+)
+
+// Server wraps the gRPC server for the regional agent
+type Server struct {
+	agent      *agent.RegionalAgent
+	logger     *zap.Logger
+	grpcServer *grpc.Server
+}
+
+// New creates a new gRPC server for the regional agent
+func New(a *agent.RegionalAgent, logger *zap.Logger) *Server {
+	return &Server{
+		agent:      a,
+		logger:     logger,
+		grpcServer: grpc.NewServer(),
+	}
+}
+
+// Start begins listening for gRPC connections on the given address
+func (s *Server) Start(addr string) error {
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	s.logger.Info("gRPC server listening", zap.String("addr", addr))
+	return s.grpcServer.Serve(lis)
+}
+
+// Stop gracefully stops the gRPC server
+func (s *Server) Stop() {
+	s.grpcServer.GracefulStop()
+	s.logger.Info("gRPC server stopped")
+}

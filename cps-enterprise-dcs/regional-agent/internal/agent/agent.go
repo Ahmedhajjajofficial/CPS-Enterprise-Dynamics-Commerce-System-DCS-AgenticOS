@@ -16,6 +16,8 @@ package agent
 import (
 	"context"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -23,8 +25,9 @@ import (
 
 	"github.com/cps-enterprise/dcs/regional-agent/internal/config"
 	"github.com/cps-enterprise/dcs/regional-agent/internal/crdt"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
-	raftboltdb "github.com/hashicorp/raft-boltdb"
+	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
 	"go.uber.org/zap"
 )
 
@@ -195,7 +198,11 @@ func (a *RegionalAgent) initRaft() error {
 	// Create Raft configuration
 	raftConfig := raft.DefaultConfig()
 	raftConfig.LocalID = raft.ServerID(a.config.AgentID)
-	raftConfig.Logger = &raftLogger{a.logger}
+	raftConfig.Logger = hclog.New(&hclog.LoggerOptions{
+		Name:   "raft",
+		Output: os.Stderr,
+		Level:  hclog.Info,
+	})
 
 	// Create transport
 	addr, err := net.ResolveTCPAddr("tcp", a.config.RaftAddress)
@@ -495,14 +502,4 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 
 	// TODO: Restore from snapshot
 	return nil
-}
-
-// raftLogger adapts zap.Logger to Raft's logger interface
-type raftLogger struct {
-	logger *zap.Logger
-}
-
-func (l *raftLogger) Write(p []byte) (n int, err error) {
-	l.logger.Info(string(p))
-	return len(p), nil
 }
