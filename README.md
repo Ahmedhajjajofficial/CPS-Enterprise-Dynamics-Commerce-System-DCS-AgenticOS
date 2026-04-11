@@ -11,6 +11,7 @@
   <a href="#development">Development</a> &bull;
   <a href="#documentation">Documentation</a> &bull;
   <a href="#deployment">Deployment</a>
+  &bull; <a href="SECURITY.md">Security</a>
 </p>
 
 ---
