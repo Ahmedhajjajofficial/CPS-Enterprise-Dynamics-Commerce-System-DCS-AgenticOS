@@ -326,6 +326,9 @@ See [docs/deployment.md](docs/deployment.md) for the full production checklist.
 
 ## Security
 
+- [Security Policy](SECURITY.md) — Protocols for vulnerability disclosure and system integrity.
+
+
 ### Envelope Encryption
 
 Every financial event is encrypted using a two-layer envelope encryption scheme:
