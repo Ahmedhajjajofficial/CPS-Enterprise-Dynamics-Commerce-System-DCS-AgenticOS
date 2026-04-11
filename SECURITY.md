@@ -6,9 +6,9 @@ We prioritize the security of the **CPS Enterprise Dynamics Commerce System (DCS
 
 | Version | Supported          | Notes                                         |
 | :---    | :---:              | :---                                          |
-| v2.x    | ✅ | Current stable release (Recommended)          |
-| v1.8.x  | ✅ | Long-Term Support (LTS) through Dec 2026      |
-| < v1.7  | ❌ | End of Life; please upgrade to a supported version |
+| v4.x    | ✅ | Current stable release (Recommended)          |
+| v3.x    | ✅ | Long-Term Support (LTS) through Dec 2026      |
+| < v3.0  | ❌ | End of Life; please upgrade to a supported version |
 
 ---
 
@@ -16,9 +16,8 @@ We prioritize the security of the **CPS Enterprise Dynamics Commerce System (DCS
 
 If you discover a potential security vulnerability, please **do not** open a public issue. In accordance with professional coordinated disclosure practices, follow these steps:
 
-1.  **Contact:** Email your report to [security@example.com](mailto:security@example.com) (Replace with your official security alias).
-2.  **Encryption:** For sensitive findings, please encrypt your message using our **PGP Public Key** (found in `SECURITY_PUB_KEY.asc` in the root directory).
-3.  **Details:** To expedite the triage process, include:
+1.  **Contact:** Email your report to [architect@cps-enterprise.com](mailto:architect@cps-enterprise.com).
+2.  **Details:** To expedite the triage process, include:
     * A technical description of the vulnerability.
     * A Proof of Concept (PoC) or step-by-step instructions to reproduce.
     * The potential impact assessment (CVSS metrics if available).
