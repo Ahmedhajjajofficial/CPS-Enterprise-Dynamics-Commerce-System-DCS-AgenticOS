@@ -3,6 +3,8 @@ site_url: https://ahmedhajjajofficial.github.io/CPS-Enterprise-Dynamics-Commerce
 
 theme:
   name: material
+  language: en # Primary: English
+  direction: ltr
   palette:
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
@@ -18,26 +20,22 @@ theme:
     - navigation.sections
     - navigation.expand
     - navigation.path
-    - navigation.prune
     - navigation.top
     - toc.integrate
     - code.copy
     - code.annotate
     - search.suggest
     - search.highlight
-    - search.share
     - content.tabs.link
-    - content.code.annotation
-    - content.code.copy
 
 extra_css:
   - stylesheets/glassmorphism.css
 
 nav:
-  - Architecture: docs/architecture.md
-  - API: docs/api.md
-  - Development: docs/development.md
-  - Deployment: docs/deployment.md
+  - Architecture: architecture.md
+  - API: api.md
+  - Development: development.md
+  - Deployment: deployment.md
 
 markdown_extensions:
   - abbr
