@@ -1,39 +1,75 @@
 site_name: CPS Enterprise DCS
 site_url: https://ahmedhajjajofficial.github.io/CPS-Enterprise-Dynamics-Commerce-System-DCS/
+
 theme:
   name: material
   palette:
-    - scheme: slate
-      primary: teal
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
       accent: cyan
-    - scheme: default
-      primary: teal
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: white
       accent: cyan
   features:
     - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
     - navigation.expand
+    - navigation.path
+    - navigation.prune
+    - navigation.top
+    - toc.integrate
     - code.copy
+    - code.annotate
     - search.suggest
     - search.highlight
+    - search.share
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+
+extra_css:
+  - stylesheets/glassmorphism.css
 
 nav:
-  - System Architecture: architecture.md
-  - API Reference: api.md
-  - Development Guide: development.md
-  - Deployment Manual: deployment.md
+  - Architecture: docs/architecture.md
+  - API: docs/api.md
+  - Development: docs/development.md
+  - Deployment: docs/deployment.md
 
 markdown_extensions:
+  - abbr
+  - admonition
   - attr_list
+  - def_list
+  - footnotes
   - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
   - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
   - pymdownx.snippets
-  - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
 
 plugins:
   - search
-
+  - minify:
+      minify_html: true
