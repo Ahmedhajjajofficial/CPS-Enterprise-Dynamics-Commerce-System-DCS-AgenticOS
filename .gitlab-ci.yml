@@ -1,7 +1,7 @@
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 # CP'S Enterprise DCS - GitLab CI/CD Pipeline
 # Distributed Commerce Platform - Monorepo Pipeline
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 #
 # Components:
 #   - app/                                → Main React App (TypeScript + Vite)
@@ -11,7 +11,7 @@
 #   - docs/                               → Documentation (MkDocs Material)
 #
 # Each component only runs when its files change (rules:changes).
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 
 stages:
   - lint
@@ -81,9 +81,9 @@ variables:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 # STAGE: lint
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 
 # Lint the main React app with ESLint
 lint:app:
@@ -119,7 +119,7 @@ lint:pos:
   rules:
     - !reference [.rules-pos, rules]
 
-# Lint the Python local agent with ruff (fast Python linter)
+# Lint the Python local agent with ruff
 lint:python:
   stage: lint
   image: python:3.11-slim
@@ -131,7 +131,6 @@ lint:python:
     - pip install ruff
   script:
     - ruff check cps-enterprise-dcs/local-agent/
-  # allow_failure: ruff may flag existing code on first run
   allow_failure: true
   rules:
     - !reference [.rules-python, rules]
@@ -151,9 +150,9 @@ lint:go:
   rules:
     - !reference [.rules-go, rules]
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 # STAGE: build
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 
 # Build the main React app (TypeScript check + Vite build)
 build:app:
@@ -161,7 +160,7 @@ build:app:
   image: node:22-alpine
   needs:
     - job: lint:app
-      optional: true  # Don't block if lint was skipped (no changes)
+      optional: true
   cache:
     key: app-npm-${CI_COMMIT_REF_SLUG}
     paths:
@@ -238,7 +237,6 @@ build:python:
     key: python-pip-${CI_COMMIT_REF_SLUG}
     paths:
       - .cache/pip
-  # Install build deps needed for native extensions (grpcio, cryptography, etc.)
   before_script:
     - apt-get update && apt-get install -y --no-install-recommends gcc g++ libpq-dev && rm -rf /var/lib/apt/lists/*
   script:
@@ -246,9 +244,9 @@ build:python:
   rules:
     - !reference [.rules-python, rules]
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 # STAGE: test
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 
 # Run Go tests for the regional agent
 test:go:
@@ -273,7 +271,6 @@ test:go:
         path: cps-enterprise-dcs/regional-agent/coverage.out
     expire_in: 7 days
     when: always
-  # allow_failure: tests may not exist yet in the repository
   allow_failure: true
   rules:
     - !reference [.rules-go, rules]
@@ -303,15 +300,14 @@ test:python:
         path: cps-enterprise-dcs/local-agent/coverage.xml
     expire_in: 7 days
     when: always
-  # allow_failure: test files may not exist yet
   allow_failure: true
   rules:
     - !reference [.rules-python, rules]
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 # STAGE: docker
 # Build and push Docker images to GitLab Container Registry (main branch only)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 
 # Base configuration for Docker-in-Docker builds
 .docker-build:
@@ -359,15 +355,35 @@ docker:regional-agent:
     - docker push "$CI_REGISTRY_IMAGE/regional-agent:${CI_COMMIT_SHORT_SHA}"
     - docker push "$CI_REGISTRY_IMAGE/regional-agent:latest"
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
 # STAGE: deploy
-# Documentation deployment via GitLab Pages
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════════
+
+# Deploy main React app to Cloudflare Workers
+deploy:cloudflare:
+  stage: deploy
+  image: node:22-alpine
+  needs:
+    - job: build:app
+      optional: true
+  script:
+    - npx wrangler@latest versions upload --assets=./app/dist
+  environment:
+    name: production
+    url: https://$CLOUDFLARE_WORKERS_SUBDOMAIN.workers.dev
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - app/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
 
 # Deploy MkDocs documentation to GitLab Pages
 pages:
   stage: deploy
   image: python:3.11-slim
+  needs: []
   cache:
     key: docs-pip-${CI_COMMIT_REF_SLUG}
     paths:
