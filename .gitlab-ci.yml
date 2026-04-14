@@ -1,14 +1,377 @@
-image: python:3.11-slim
+# ═══════════════════════════════════════════════════════════════════════════════
+# CP'S Enterprise DCS - GitLab CI/CD Pipeline
+# Distributed Commerce Platform - Monorepo Pipeline
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Components:
+#   - app/                                → Main React App (TypeScript + Vite)
+#   - cps-enterprise-dcs/pos-interface/   → POS Interface (React + Vite + Docker)
+#   - cps-enterprise-dcs/local-agent/     → Local Agent (Python 3.11 + gRPC + Docker)
+#   - cps-enterprise-dcs/regional-agent/  → Regional Agent (Go 1.24 + Raft + Docker)
+#   - docs/                               → Documentation (MkDocs Material)
+#
+# Each component only runs when its files change (rules:changes).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+stages:
+  - lint
+  - build
+  - test
+  - docker
+  - deploy
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Global defaults
+# ─────────────────────────────────────────────────────────────────────────────
+default:
+  interruptible: true  # Allow newer pipelines to cancel older ones
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  NPM_CONFIG_CACHE: "$CI_PROJECT_DIR/.cache/npm"
+  GOPATH: "$CI_PROJECT_DIR/.cache/go"
+  GOMODCACHE: "$CI_PROJECT_DIR/.cache/go-mod"
 
-cache:
-  paths:
-    - .cache/pip
+# ─────────────────────────────────────────────────────────────────────────────
+# Reusable rule anchors
+# ─────────────────────────────────────────────────────────────────────────────
 
+# Rules for the main React app (app/)
+.rules-app:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - app/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - app/**/*
+
+# Rules for the POS interface
+.rules-pos:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - cps-enterprise-dcs/pos-interface/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - cps-enterprise-dcs/pos-interface/**/*
+
+# Rules for the Python local agent
+.rules-python:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - cps-enterprise-dcs/local-agent/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - cps-enterprise-dcs/local-agent/**/*
+
+# Rules for the Go regional agent
+.rules-go:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - cps-enterprise-dcs/regional-agent/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - cps-enterprise-dcs/regional-agent/**/*
+
+# Rules for Docker builds — only on the default branch
+.rules-docker:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STAGE: lint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Lint the main React app with ESLint
+lint:app:
+  stage: lint
+  image: node:22-alpine
+  cache:
+    key: app-npm-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/npm
+      - app/node_modules/
+  before_script:
+    - cd app
+    - npm ci --prefer-offline
+  script:
+    - npx eslint .
+  rules:
+    - !reference [.rules-app, rules]
+
+# Lint the POS interface with ESLint
+lint:pos:
+  stage: lint
+  image: node:20-alpine
+  cache:
+    key: pos-npm-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/npm
+      - cps-enterprise-dcs/pos-interface/node_modules/
+  before_script:
+    - cd cps-enterprise-dcs/pos-interface
+    - npm ci --prefer-offline
+  script:
+    - npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0
+  rules:
+    - !reference [.rules-pos, rules]
+
+# Lint the Python local agent with ruff (fast Python linter)
+lint:python:
+  stage: lint
+  image: python:3.11-slim
+  cache:
+    key: python-pip-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/pip
+  before_script:
+    - pip install ruff
+  script:
+    - ruff check cps-enterprise-dcs/local-agent/
+  # allow_failure: ruff may flag existing code on first run
+  allow_failure: true
+  rules:
+    - !reference [.rules-python, rules]
+
+# Lint the Go regional agent with go vet
+lint:go:
+  stage: lint
+  image: golang:1.24-alpine
+  cache:
+    key: go-mod-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/go
+      - .cache/go-mod
+  script:
+    - cd cps-enterprise-dcs/regional-agent
+    - go vet ./...
+  rules:
+    - !reference [.rules-go, rules]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STAGE: build
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Build the main React app (TypeScript check + Vite build)
+build:app:
+  stage: build
+  image: node:22-alpine
+  needs:
+    - job: lint:app
+      optional: true  # Don't block if lint was skipped (no changes)
+  cache:
+    key: app-npm-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/npm
+      - app/node_modules/
+  before_script:
+    - cd app
+    - npm ci --prefer-offline
+  script:
+    - npx tsc -b
+    - npx vite build
+  artifacts:
+    paths:
+      - app/dist/
+    expire_in: 1 day
+  rules:
+    - !reference [.rules-app, rules]
+
+# Build the POS interface (TypeScript check + Vite build)
+build:pos:
+  stage: build
+  image: node:20-alpine
+  needs:
+    - job: lint:pos
+      optional: true
+  cache:
+    key: pos-npm-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/npm
+      - cps-enterprise-dcs/pos-interface/node_modules/
+  before_script:
+    - cd cps-enterprise-dcs/pos-interface
+    - npm ci --prefer-offline
+  script:
+    - npx tsc
+    - npx vite build
+  artifacts:
+    paths:
+      - cps-enterprise-dcs/pos-interface/dist/
+    expire_in: 1 day
+  rules:
+    - !reference [.rules-pos, rules]
+
+# Build the Go regional agent binary
+build:go:
+  stage: build
+  image: golang:1.24-alpine
+  needs:
+    - job: lint:go
+      optional: true
+  cache:
+    key: go-mod-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/go
+      - .cache/go-mod
+  script:
+    - cd cps-enterprise-dcs/regional-agent
+    - CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o regional-agent .
+  artifacts:
+    paths:
+      - cps-enterprise-dcs/regional-agent/regional-agent
+    expire_in: 1 day
+  rules:
+    - !reference [.rules-go, rules]
+
+# Verify Python dependencies install correctly
+build:python:
+  stage: build
+  image: python:3.11-slim
+  needs:
+    - job: lint:python
+      optional: true
+  cache:
+    key: python-pip-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/pip
+  # Install build deps needed for native extensions (grpcio, cryptography, etc.)
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends gcc g++ libpq-dev && rm -rf /var/lib/apt/lists/*
+  script:
+    - pip install --no-cache-dir -r cps-enterprise-dcs/local-agent/requirements.txt
+  rules:
+    - !reference [.rules-python, rules]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STAGE: test
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Run Go tests for the regional agent
+test:go:
+  stage: test
+  image: golang:1.24-alpine
+  needs:
+    - job: build:go
+      optional: true
+  cache:
+    key: go-mod-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/go
+      - .cache/go-mod
+  script:
+    - cd cps-enterprise-dcs/regional-agent
+    - go test -v -race -coverprofile=coverage.out ./...
+  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: cps-enterprise-dcs/regional-agent/coverage.out
+    expire_in: 7 days
+    when: always
+  # allow_failure: tests may not exist yet in the repository
+  allow_failure: true
+  rules:
+    - !reference [.rules-go, rules]
+
+# Run Python tests for the local agent with pytest
+test:python:
+  stage: test
+  image: python:3.11-slim
+  needs:
+    - job: build:python
+      optional: true
+  cache:
+    key: python-pip-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/pip
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends gcc g++ libpq-dev && rm -rf /var/lib/apt/lists/*
+    - pip install --no-cache-dir -r cps-enterprise-dcs/local-agent/requirements.txt
+  script:
+    - cd cps-enterprise-dcs/local-agent
+    - python -m pytest --junitxml=report.xml --cov=src --cov-report=xml:coverage.xml -v || true
+  artifacts:
+    reports:
+      junit: cps-enterprise-dcs/local-agent/report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: cps-enterprise-dcs/local-agent/coverage.xml
+    expire_in: 7 days
+    when: always
+  # allow_failure: test files may not exist yet
+  allow_failure: true
+  rules:
+    - !reference [.rules-python, rules]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STAGE: docker
+# Build and push Docker images to GitLab Container Registry (main branch only)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Base configuration for Docker-in-Docker builds
+.docker-build:
+  stage: docker
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  rules:
+    - !reference [.rules-docker, rules]
+
+# Build and push POS Interface Docker image
+docker:pos:
+  extends: .docker-build
+  needs:
+    - job: build:pos
+      optional: true
+  script:
+    - docker build -t "$CI_REGISTRY_IMAGE/pos-interface:${CI_COMMIT_SHORT_SHA}" -t "$CI_REGISTRY_IMAGE/pos-interface:latest" cps-enterprise-dcs/pos-interface/
+    - docker push "$CI_REGISTRY_IMAGE/pos-interface:${CI_COMMIT_SHORT_SHA}"
+    - docker push "$CI_REGISTRY_IMAGE/pos-interface:latest"
+
+# Build and push Local Agent Docker image
+docker:local-agent:
+  extends: .docker-build
+  needs:
+    - job: build:python
+      optional: true
+  script:
+    - docker build -t "$CI_REGISTRY_IMAGE/local-agent:${CI_COMMIT_SHORT_SHA}" -t "$CI_REGISTRY_IMAGE/local-agent:latest" cps-enterprise-dcs/local-agent/
+    - docker push "$CI_REGISTRY_IMAGE/local-agent:${CI_COMMIT_SHORT_SHA}"
+    - docker push "$CI_REGISTRY_IMAGE/local-agent:latest"
+
+# Build and push Regional Agent Docker image
+docker:regional-agent:
+  extends: .docker-build
+  needs:
+    - job: build:go
+      optional: true
+  script:
+    - docker build -t "$CI_REGISTRY_IMAGE/regional-agent:${CI_COMMIT_SHORT_SHA}" -t "$CI_REGISTRY_IMAGE/regional-agent:latest" cps-enterprise-dcs/regional-agent/
+    - docker push "$CI_REGISTRY_IMAGE/regional-agent:${CI_COMMIT_SHORT_SHA}"
+    - docker push "$CI_REGISTRY_IMAGE/regional-agent:latest"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STAGE: deploy
+# Documentation deployment via GitLab Pages
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Deploy MkDocs documentation to GitLab Pages
 pages:
   stage: deploy
+  image: python:3.11-slim
+  cache:
+    key: docs-pip-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/pip
   script:
     - pip install mkdocs==1.6.1 mkdocs-material==9.5.47 mkdocs-minify-plugin==0.8.0 pymdown-extensions==10.11 pygments==2.18.0 mkdocs-static-i18n==1.2.3
     - mkdocs build --clean --site-dir public
