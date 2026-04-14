@@ -1,0 +1,26 @@
+image: python:3.11-slim
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+
+pages:
+  stage: deploy
+  script:
+    - pip install mkdocs==1.6.1 mkdocs-material==9.5.47 mkdocs-minify-plugin==0.8.0 pymdown-extensions==10.11 pygments==2.18.0 mkdocs-static-i18n==1.2.3
+    - mkdocs build --clean --site-dir public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - docs/**/*
+        - mkdocs.yml
+        - .gitlab-ci.yml
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
