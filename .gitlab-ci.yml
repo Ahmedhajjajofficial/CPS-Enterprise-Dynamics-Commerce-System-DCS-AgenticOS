@@ -2,13 +2,51 @@ image: python:3.11-slim
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  NODE_VERSION: "22"
 
 cache:
   paths:
     - .cache/pip
+    - app/node_modules/
 
+stages:
+  - build
+  - deploy
+
+# ─── بناء تطبيق React/Vite ───────────────────────────────────────────────────
+build-app:
+  stage: build
+  image: node:22-slim
+  script:
+    - cd app
+    - npm clean-install --progress=false
+    - npm run build
+  artifacts:
+    paths:
+      - app/dist/
+    expire_in: 1 hour
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ─── نشر على Cloudflare Workers ──────────────────────────────────────────────
+deploy-cloudflare:
+  stage: deploy
+  image: node:22-slim
+  needs:
+    - build-app
+  script:
+    - npx wrangler@latest versions upload --assets=./app/dist
+  environment:
+    name: production
+    url: https://$CLOUDFLARE_WORKERS_SUBDOMAIN.workers.dev
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ─── نشر توثيق MkDocs على GitLab Pages ──────────────────────────────────────
 pages:
   stage: deploy
+  image: python:3.11-slim
+  needs: []
   script:
     - pip install mkdocs==1.6.1 mkdocs-material==9.5.47 mkdocs-minify-plugin==0.8.0 pymdown-extensions==10.11 pygments==2.18.0 mkdocs-static-i18n==1.2.3
     - mkdocs build --clean --site-dir public
