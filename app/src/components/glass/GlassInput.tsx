@@ -15,7 +15,8 @@ interface GlassInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 const GlassInput = React.forwardRef<HTMLInputElement, GlassInputProps>(
   ({ className, icon, label, error, id, ...props }, ref) => {
-    const inputId = id || React.useId()
+    const generatedId = React.useId()
+    const inputId = id || generatedId
 
     return (
       <div className="space-y-2">

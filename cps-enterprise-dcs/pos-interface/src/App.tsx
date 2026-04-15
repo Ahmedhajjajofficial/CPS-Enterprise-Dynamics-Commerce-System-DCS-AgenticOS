@@ -58,7 +58,7 @@ function App() {
       setShowLogin(false);
       setShowSessionStart(true);
     }
-  }, []);
+  }, [currentUser, login]);
 
   const handleStartSession = (openingBalance: number) => {
     startSession(openingBalance, 'REG001');
