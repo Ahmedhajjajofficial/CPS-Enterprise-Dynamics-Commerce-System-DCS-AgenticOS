@@ -19,7 +19,6 @@ import {
   GlassBadge,
   GlassTable,
   GlassProgress,
-  GlassInput,
 } from '@/components/glass'
 import type { SidebarGroup, Column } from '@/components/glass'
 import './App.css'
