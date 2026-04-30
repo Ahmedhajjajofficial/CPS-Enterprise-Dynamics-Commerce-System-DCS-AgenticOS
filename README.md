@@ -359,7 +359,7 @@ This project is licensed under the **CP'S Enterprise License**. See [LICENSE](LI
 ## Contact
 
 - **Author**: Ahmed Hajjaj — Full-Spectrum Architect
-- **Email**: architect@cps-enterprise.com
+- **Email**: info.cpsfortechnology@gmail.com
 
 ---
 
