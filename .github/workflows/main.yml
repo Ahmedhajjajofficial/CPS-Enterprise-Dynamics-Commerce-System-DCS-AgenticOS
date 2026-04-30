@@ -1,4 +1,4 @@
-name: DCS CI/CD Pipeline
+name: DCS main.yaml Pipeline
 
 on:
   push:
