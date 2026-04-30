@@ -271,6 +271,11 @@ func (a *RegionalAgent) initRaft() error {
 	return nil
 }
 
+// GetID returns the agent's identifier
+func (a *RegionalAgent) GetID() string {
+	return a.config.AgentID
+}
+
 // IsLeader returns true if this agent is the Raft leader
 func (a *RegionalAgent) IsLeader() bool {
 	return a.raft.State() == raft.Leader

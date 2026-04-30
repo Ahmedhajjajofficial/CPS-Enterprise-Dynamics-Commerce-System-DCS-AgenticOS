@@ -4,8 +4,10 @@ import (
 	"net"
 
 	"github.com/cps-enterprise/dcs/regional-agent/internal/agent"
+	pb "github.com/cps-enterprise/dcs/regional-agent/internal/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 // Server wraps the gRPC server for the regional agent
@@ -17,11 +19,20 @@ type Server struct {
 
 // New creates a new gRPC server for the regional agent
 func New(a *agent.RegionalAgent, logger *zap.Logger) *Server {
-	return &Server{
+	s := &Server{
 		agent:      a,
 		logger:     logger,
 		grpcServer: grpc.NewServer(),
 	}
+
+	// Register handlers
+	pb.RegisterAccountingSwarmProtocolServer(s.grpcServer, &SwarmHandler{server: s})
+	pb.RegisterQueryProtocolServer(s.grpcServer, &QueryHandler{server: s})
+
+	// Enable reflection for debugging
+	reflection.Register(s.grpcServer)
+
+	return s
 }
 
 // Start begins listening for gRPC connections on the given address
