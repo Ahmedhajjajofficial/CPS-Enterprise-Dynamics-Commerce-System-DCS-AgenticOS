@@ -1,0 +1,49 @@
+name: Deploy MkDocs to GitHub Pages
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch: # يكافئ when: manual
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy-docs:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+          
+      - name: Install Dependencies
+        run: |
+          pip install --quiet mkdocs==1.6.1 mkdocs-material==9.5.47 mkdocs-minify-plugin==0.8.0 pymdown-extensions==10.11 pygments==2.18.0 mkdocs-static-i18n==1.2.3
+          
+      - name: Build Site
+        run: mkdocs build --clean --site-dir public
+        
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+          
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
