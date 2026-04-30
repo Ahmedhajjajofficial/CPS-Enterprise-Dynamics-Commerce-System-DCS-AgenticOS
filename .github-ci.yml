@@ -164,7 +164,7 @@ test-local-agent:
   script:
     - pip install --quiet -r cps-enterprise-dcs/local-agent/requirements.txt
     - python -m pytest cps-enterprise-dcs/local-agent/src/ -v --tb=short || [ $? -eq 5 ]
-  allow_failure: true
+  allow_failure: "true"
   rules:
     - !reference [.rules-mr-and-main, rules]
 
@@ -181,7 +181,7 @@ test-regional-agent:
   script:
     - cd cps-enterprise-dcs/regional-agent
     - go test ./... -v
-  allow_failure: true
+  allow_failure: "true"
   rules:
     - !reference [.rules-mr-and-main, rules]
 
@@ -203,7 +203,7 @@ deploy-cloudflare:
   rules:
     - !reference [.rules-deploy, rules]
 
-# Build and deploy MkDocs documentation to GitLab Pages (bilingual Ar-En)
+# Build and deploy MkDocs documentation to github Pages (bilingual Ar-En)
 pages:
   stage: deploy
   image: python:3.11-slim
@@ -224,7 +224,7 @@ pages:
       changes:
         - docs/**/*
         - mkdocs.yml
-        - .gitlab-ci.yml
+        - .github-ci.yml
     # Manual trigger for other main branch pushes
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
