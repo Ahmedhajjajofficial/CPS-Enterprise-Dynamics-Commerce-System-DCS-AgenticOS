@@ -18,8 +18,8 @@ jobs:
   lint-app:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -33,8 +33,8 @@ jobs:
   lint-pos:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -48,8 +48,8 @@ jobs:
   lint-regional-agent:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: cps-enterprise-dcs/regional-agent/go.sum
@@ -63,8 +63,8 @@ jobs:
   build-app:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -75,7 +75,7 @@ jobs:
           npm clean-install --progress=false
           npm run build
       - name: Upload App Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: app-dist
           path: app/dist/
@@ -84,8 +84,8 @@ jobs:
   build-pos:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -96,7 +96,7 @@ jobs:
           npm clean-install --legacy-peer-deps --progress=false
           npm run build
       - name: Upload POS Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pos-dist
           path: cps-enterprise-dcs/pos-interface/dist/
@@ -105,8 +105,8 @@ jobs:
   build-regional-agent:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: cps-enterprise-dcs/regional-agent/go.sum
@@ -116,7 +116,7 @@ jobs:
           mkdir -p bin
           go build -o bin/ ./...
       - name: Upload Regional Agent Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: regional-agent-bin
           path: cps-enterprise-dcs/regional-agent/bin/
@@ -129,8 +129,8 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true # يكافئ allow_failure: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -144,8 +144,8 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: cps-enterprise-dcs/regional-agent/go.sum
@@ -164,12 +164,12 @@ jobs:
       name: production
       url: https://${{ secrets.CLOUDFLARE_WORKERS_SUBDOMAIN }}.workers.dev
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Download App Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: app-dist
           path: app/dist
